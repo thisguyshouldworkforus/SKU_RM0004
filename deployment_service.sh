@@ -5,9 +5,14 @@ file_path="/etc/systemd/system/"
 service_name="uctronics-display.service"
 exe_path=$(pwd)/"display"
 
-version=$(cat /etc/os-release | grep "VERSION_ID" | awk -F= '{print $2}' | tr -d '"')
-MODEL=$(cat /proc/device-tree/model)
-converted_version=$((version))
+# Get VERSION_ID without quotes
+version=$(command grep -E '^VERSION_ID=' /etc/os-release | awk -F= '{print $2}' | tr -d '"')
+
+# Get model from /proc/device-tree
+MODEL=$(tr -d '\0' < /proc/device-tree/model)
+
+# Strip decimal from version (e.g., 10.0 → 10)
+converted_version=${version%%.*}
 
 deploy_function_service() {
     echo Create a new service "$file_path""$service_name".
