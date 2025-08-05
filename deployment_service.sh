@@ -93,11 +93,6 @@ detect_pi_model() {
 
 BOOT_CONFIG="/boot/config.txt"
 
-if [ $converted_version -ge 12 ]; then
-    BOOT_CONFIG="/boot/firmware/config.txt"
-fi
-
-
 if detect_pi_model; then
     if [[ $(detect_pi_model) == *"Raspberry Pi 5"* ]]; then
         echo "Adding overlay configuration for Raspberry Pi 5"
