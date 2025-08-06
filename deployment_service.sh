@@ -3,7 +3,7 @@
 # Path and name of the new file.
 file_path="/etc/systemd/system/"
 service_name="uctronics-display.service"
-exe_path=$(pwd)/"display"
+exe_path=
 
 # Get VERSION_ID without quotes
 version=$(command grep -E '^VERSION_ID=' /etc/os-release | awk -F= '{print $2}' | tr -d '"')
@@ -24,7 +24,7 @@ Description=UCtronics Display
 After=multi-user.target
 
 [Service]
-ExecStart=/bin/sh -c "'$exe_path'"
+ExecStart=/usr/bin/display
 
 [Install]
 WantedBy=multi-user.target
@@ -52,21 +52,13 @@ install_service() {
 
             echo "Enable and start the service."
             sudo systemctl enable $service_name
-            # sudo systemctl start $service_name
+            sudo systemctl start $service_name
 
             # # Check if the service is active
-            # if sudo systemctl is-active --quiet $service_name; then
-            #     echo "Service $service_name has been successfully enabled and started."
-            # else
-            #     echo "Failed to start service $service_name."
-            # fi
-
-            echo "The script needs to be restarted to take effect. Do you need to restart now? (y/n)"
-            read -r answer
-            if [ "$answer" = 'y' ] || [ "$answer" = 'Y' ]; then
-                sudo reboot
-            else 
-                exit 0
+            if sudo systemctl is-active --quiet $service_name; then
+                echo "Service $service_name has been successfully enabled and started."
+            else
+                echo "Failed to start service $service_name."
             fi
 
         else
