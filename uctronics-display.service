@@ -1,0 +1,9 @@
+[Unit]
+Description=UCtronics Display
+After=multi-user.target
+
+[Service]
+ExecStart=/usr/bin/display
+
+[Install]
+WantedBy=multi-user.target
