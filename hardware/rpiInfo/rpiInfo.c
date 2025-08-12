@@ -188,10 +188,12 @@ void get_sd_memory(uint32_t *MemSize, uint32_t *freesize)
     {
         unsigned long long block = (unsigned long long)(vfs.f_frsize ? vfs.f_frsize : vfs.f_bsize);
         unsigned long long total = (unsigned long long)vfs.f_blocks * block;
-        unsigned long long freeb = (unsigned long long)vfs.f_bfree   * block;
+        unsigned long long free_all = (unsigned long long)vfs.f_bfree * block;   /* includes root-reserved */
+        unsigned long long used = total - free_all;
 
-        *MemSize  = (uint32_t)(total / (1024ULL * 1024ULL));
-        *freesize = (uint32_t)(freeb / (1024ULL * 1024ULL));
+        /* Report MB to keep percent math consistent (units don’t matter as long as both match) */
+        *MemSize  = (uint32_t)(total / (1024ULL * 1024ULL));  /* total MB */
+        *freesize = (uint32_t)(used  / (1024ULL * 1024ULL));  /* USED MB (name is historical) */
     }
     else
     {
