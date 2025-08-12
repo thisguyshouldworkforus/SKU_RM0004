@@ -134,36 +134,46 @@ static void upcase_ascii(char *s)
 
 char* get_ip_address(void)
 {
-    /* Always fetch hostname */
     char hostname[256];
-    if (gethostname(hostname, sizeof(hostname)) != 0) {
-        strncpy(hostname, "unknown", sizeof(hostname));
+    int rc;
+    const char *ifname;
+    char *ip;
+    size_t needed;
+    char *result;
+
+    rc = gethostname(hostname, sizeof(hostname));
+    if (rc != 0) {
+        /* keep it simple on error */
+        strcpy(hostname, "unknown");
     }
     hostname[sizeof(hostname) - 1] = '\0';
 
 #if IP_SWITCH == IP_DISPLAY_CLOSE
-    /* IP is disabled: show HOSTNAME ONLY, in CAPS */
-    char *out = strdup(hostname);
-    if (!out) return NULL;
-    upcase_ascii(out);
-    return out;
+    /* IP disabled: show HOSTNAME ONLY, in CAPS */
+    result = strdup(hostname);
+    if (result != NULL) {
+        upcase_ascii(result);
+    }
+    return result;
 #else
-    /* IP is enabled: return "hostname: ipv4" (hostname as-is) */
-    const char* ifname = pick_iface();
-    char* ip = lookup_ipv4_for_iface(ifname);
+    /* IP enabled: "hostname: ipv4" (hostname as-is) */
+    ifname = pick_iface();
+    ip = lookup_ipv4_for_iface(ifname);
 
-    if (ip) {
-        size_t needed = strlen(hostname) + 2 /*": "*/ + strlen(ip) + 1;
-        char *result = (char*)malloc(needed);
-        if (result) {
+    if (ip != NULL) {
+        needed = strlen(hostname) + 2 /* ": " */ + strlen(ip) + 1;
+        result = (char*)malloc(needed);
+        if (result != NULL) {
             snprintf(result, needed, "%s: %s", hostname, ip);
         }
         free(ip);
-        return result ? result : strdup(hostname);
-    } else {
-        /* No IP found; still return hostname to avoid blank line */
-        return strdup(hostname);
+        if (result != NULL) {
+            return result;
+        }
     }
+
+    /* No IP found; still return hostname to avoid blank line */
+    return strdup(hostname);
 #endif
 }
 
