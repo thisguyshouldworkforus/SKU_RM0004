@@ -3,8 +3,8 @@
  * rpiInfo.c — AlmaLinux/RHEL optimized, C89/C90-safe
  *
  * Behavior:
- *   - If IP display is ENABLED: return "hostname: ipv4" (hostname as-is).
- *   - If IP display is DISABLED: return HOSTNAME in UPPERCASE (replacing prior CUSTOM_DISPLAY).
+ *   - If IP display is ENABLED: return "hostname ip" (no "IP:" label, no colon).
+ *   - If IP display is DISABLED: return HOSTNAME in UPPERCASE.
  *
  * Improvements:
  *   - Custom NIC support (e.g., "end0") via CUSTOM_IFNAME.
@@ -184,17 +184,18 @@ char* get_ip_address(void)
         upcase_ascii(result);
     return result;
 #else
-    /* IP enabled: "hostname: ipv4" (hostname as-is) */
+    /* IP enabled: "hostname ip" (hostname as-is, no label, no colon) */
     ifname = pick_iface();
     ip = lookup_ipv4_for_iface(ifname);
 
     if (ip != NULL)
     {
-        needed = strlen(hostname) + 2 /* ": " */ + strlen(ip) + 1;
+        /* space between hostname and IP; shorter than "hostname: ip" */
+        needed = strlen(hostname) + 1 /* space */ + strlen(ip) + 1;
         result = (char*)malloc(needed);
         if (result != NULL)
         {
-            snprintf(result, needed, "%s: %s", hostname, ip);
+            snprintf(result, needed, "%s %s", hostname, ip);
         }
         free(ip);
         if (result != NULL)
