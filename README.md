@@ -1,151 +1,114 @@
-# UCTRONICS Pi-Rack Pro Display – AlmaLinux/RHEL Optimized Fork
+# UCTRONICS Display for AlmaLinux / RHEL
 
 ## Overview
+This project is a fork of the UCTRONICS display utility for Raspberry Pi, fully refactored and optimized for **AlmaLinux 10 / RHEL 9+** environments.
 
-This is a customized and optimized fork of the [UCTRONICS SKU_RM0004](https://github.com/UCTRONICS/SKU_RM0004) repository designed for **AlmaLinux 10 / RHEL** environments running on Raspberry Pi hardware (Pi 4 and similar).
+The display utility uses the **ST7735** controller via I2C to display system information such as hostname, IP address, CPU load, RAM usage, temperature, and disk usage.
 
-It addresses hardware, naming, and metric calculation issues encountered when deploying the Pi-Rack Pro display system outside of Raspberry Pi OS, and on systems where:
-
-- Network interfaces are **not** named `eth0` or `wlan0` (e.g., `end0`).
-- Root filesystem devices are **not** `/dev/sda` (e.g., `/dev/root`, NVMe, LVM, mmcblk).
-- The original code’s `get_sd_memory()` return values were inverted vs. what the display UI expects.
-- GPIO overlay conflicts with `gpio-shutdown` caused immediate safe shutdowns.
+The source code has been heavily modified for stability, clarity, and better integration with server environments.
 
 ---
 
-## Changes & Fixes
+## Key Changes in This Fork
 
-### 1. **Custom Network Interface Support**
-- Added a new `CUSTOM_ADDRESS` constant and `CUSTOM_IFNAME` macro in `rpiInfo.h`.
-- The network display code now supports:
-  - `ETH0_ADDRESS` → shows IP of `eth0`.
-  - `WLAN0_ADDRESS` → shows IP of `wlan0`.
-  - `CUSTOM_ADDRESS` → shows IP of any interface name (set via `CUSTOM_IFNAME`).
-- Default `CUSTOM_IFNAME` in this fork is `"end0"`.
+### 1. Hostname & IP Display Behavior
+- The first line of the display now shows:
+  - **`hostname ip`** when IP display is enabled.
+  - **`HOSTNAME` (uppercase)** when IP display is disabled.
+- Removed the `"IP:"` prefix to prevent line wrapping on smaller displays.
+- Hostname/IP formatting is handled by `get_ip_address_new()` in `rpiInfo.c`.
 
-**Why:** AlmaLinux/RHEL on Pi often uses `predictable network interface names` like `end0`, breaking the original hardcoded eth0/wlan0 lookups.
+### 2. Disk Usage Calculation
+- Changed disk usage source to read from **`/dev/root`** instead of hardcoded `/dev/mmcblk0` or `/` paths.
+- Correctly calculates total and used disk space for any filesystem mounted as root.
 
----
+### 3. Codebase Improvements
+- Entire **`st7735.c`** rewritten for clean C89 compatibility.
+- Memory safety improvements: buffer bounds checking, `malloc()`/`free()` handling for IP strings.
+- Removed redundant variables and fixed potential truncation bugs.
+- Clearer separation of drawing functions and data retrieval logic.
 
-### 2. **Robust IP Address Lookup**
-- Replaced brittle shell parsing of `/sbin/ifconfig` with `getifaddrs()` for direct IPv4 address retrieval.
-- This avoids dependencies on deprecated tools and ensures compatibility with minimal server installs.
-
----
-
-### 3. **Root Filesystem Disk Usage Fix**
-- Original `get_hard_disk_memory()` ran:
-  ```sh
-  df -l | grep /dev/sda | awk '{print $2}' ...
-  ```
-  …which fails on `/dev/root`, NVMe, or LVM devices.
-- Now uses `statvfs("/")` to measure the mounted root filesystem regardless of device name.
-- No reliance on `df` output or device naming conventions.
+### 4. Optimizations for AlmaLinux / RHEL
+- Uses `/dev/i2c-1` by default (can be changed in source).
+- Fully compatible with **systemd** service environments.
+- No Raspberry Pi–specific dependencies — works on any SBC with the ST7735 over I2C.
 
 ---
 
-### 4. **Corrected SD/Root Usage Math**
-- Original `get_sd_memory()` labeled the second output param `freesize` but actually returned **used space** (GB).
-- Our first rewrite returned **free space**, which caused the display to show ~90% usage on all systems.
-- Now restored the original semantic (return **used MB**), but kept the code clean and accurate.
+## Installation
 
----
-
-### 5. **GPIO4 Safe Shutdown Conflict Resolution**
-- Original instructions enabled:
-  ```ini
-  dtoverlay=gpio-shutdown,gpio_pin=4,active_low=1,gpio_pull=up
-  ```
-  …while the `display` binary also manipulates GPIO4.
-- On AlmaLinux/RHEL, this resulted in an **instant safe shutdown** as soon as `display` ran.
-- **Fix:** Disable the overlay in `/boot/config.txt` and let the `display` app handle the button in userspace.
-
----
-
-### 6. **Temperature Reading**
-- Reads from `/sys/class/thermal/thermal_zone0/temp`.
-- Converts to °C or °F depending on `TEMPERATURE_TYPE`.
-- Clamped to 0–255 for OLED-friendly display.
-
----
-
-### 7. **CPU Load Bucketing**
-- Uses `/proc/loadavg` (1-minute average) normalized by CPU core count.
-- Scaled to a 0–255 range for graphical display.
-
----
-
-## AlmaLinux / RHEL Optimizations
-
-- **Interface Naming:** Supports predictable names like `end0` out of the box.
-- **Disk Metrics:** Works with `/dev/root` (mmcblk), NVMe, LVM without changes.
-- **No `ifconfig` dependency:** Compatible with minimal `dnf`-based server installs.
-- **No `/dev/sda` assumption:** Portable across SD, SSD, USB, or network-root Pis.
-- **glibc API usage:** Uses `getifaddrs()` and `statvfs()` — no parsing external command output.
-- **Safe GPIO handling:** Removes conflicting overlays that trigger systemd-logind shutdown events.
-
----
-
-## Build & Install
-
-### 1. Clone Your Fork
+### Build from Source
 ```bash
-git clone https://github.com/<yourusername>/SKU_RM0004.git
-cd SKU_RM0004
-```
+# Clone your forked repository
+git clone https://github.com/YOURUSERNAME/uctronics-display.git
+cd uctronics-display
 
-### 2. Build
-```bash
+# Build
 make clean && make
+
+# Install binary
+sudo install -m 0755 display /usr/bin/uctronics-display
 ```
 
-### 3. Install
-```bash
-install -m 0755 display /usr/bin/uctronics-display
-```
-*(Or change the Makefile target to `uctronics-display` if you want that name compiled in.)*
-
-### 4. Run
+### Running Manually
 ```bash
 uctronics-display
 ```
 
----
-
-## Boot Service Setup
-
-To start `uctronics-display` automatically at boot:
-
-```bash
-cat >/etc/systemd/system/uctronics-display.service <<'EOF'
+### Running as a Service
+Create a systemd service file at `/etc/systemd/system/uctronics-display.service`:
+```ini
 [Unit]
-Description=UCTRONICS OLED display service
-After=network-online.target
+Description=UCTRONICS Display Service
+After=multi-user.target
 
 [Service]
-Type=simple
 ExecStart=/usr/bin/uctronics-display
-Restart=on-failure
+Restart=always
+User=root
 
 [Install]
 WantedBy=multi-user.target
-EOF
+```
 
-systemctl daemon-reload
-systemctl enable --now uctronics-display
+Enable and start:
+```bash
+sudo systemctl daemon-reload
+sudo systemctl enable --now uctronics-display
 ```
 
 ---
 
-## Compatibility Notes
+## Display Layout
 
-- Tested on AlmaLinux 10 (aarch64) with Pi 4 hardware.
-- Works on RHEL clones and Raspberry Pi OS (but Pi OS users generally don’t need the `/dev/root` and `end0` changes).
-- If using the GPIO button for safe shutdown:
-  - Let `uctronics-display` handle it in userspace.
-  - Avoid `gpio-shutdown` overlay on the same pin (GPIO4) to prevent immediate shutdown events.
+Example when IP display is enabled:
+```
+ansible 10.0.0.15
+=================
+CPU: 12%
+```
+
+Example when IP display is disabled:
+```
+ANSIBLE
+=================
+CPU: 12%
+```
+
+---
+
+## File Changes Summary
+
+### Modified Files
+- `hardware/rpiInfo/rpiInfo.c`
+  - Updated `get_ip_address_new()` to return formatted string: `hostname ip` or `HOSTNAME`.
+  - Added logic for uppercase hostname only when IP display is disabled.
+- `hardware/st7735/st7735.c`
+  - Removed `"IP:"` prefix entirely.
+  - Now calls `get_ip_address_new()` directly for first-line display.
+  - Memory safety fixes and code cleanup.
 
 ---
 
 ## License
-This fork retains the original license from the UCTRONICS SKU_RM0004 repository.
+This project remains under the same license as the original UCTRONICS source. Please check `LICENSE` for details.
