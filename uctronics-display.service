@@ -1,9 +1,11 @@
 [Unit]
-Description=UCtronics Display
-After=multi-user.target
+Description=UCTRONICS OLED display service
+After=network-online.target
 
 [Service]
-ExecStart=/usr/bin/display
+Type=simple
+ExecStart=/usr/bin/uctronics-display
+Restart=on-failure
 
 [Install]
 WantedBy=multi-user.target
