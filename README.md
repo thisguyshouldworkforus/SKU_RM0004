@@ -19,7 +19,7 @@ The source code has been heavily modified for stability, clarity, and better int
 - Hostname/IP formatting is handled by `get_ip_address_new()` in `rpiInfo.c`.
 
 ### 2. Disk Usage Calculation
-- Changed disk usage source to read from **`/dev/root`** instead of hardcoded `/dev/mmcblk0` or `/` paths.
+- Changed disk usage source to read from the filesystem mounted as root **`/`**, using statvfs('/') _(instead of hardcoded `/dev/sda`)_.
 - Correctly calculates total and used disk space for any filesystem mounted as root.
 
 ### 3. Codebase Improvements
